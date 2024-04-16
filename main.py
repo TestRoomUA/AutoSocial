@@ -2,9 +2,7 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ContentType
-from core.handlers.basic import get_start, get_photo, get_hello, get_repeat, get_sticker, get_voice, get_location, get_inline
-from core.filters.iscontact import IsTrueContact
-from core.handlers.contact import get_fake_contact, get_true_contact
+from core.handlers.basic import get_start, get_message, contacts_info_command
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 import asyncio
@@ -12,20 +10,27 @@ import logging
 from core.settings import settings
 from aiogram.filters import Command, CommandStart
 from core.utils.commands import set_commands
-from core.handlers.callback import select_car, select_start
-from core.utils.callbackdata import CarInfo
+from core.handlers.callback import contacts_info, send_contact_data
+from core.utils.callbackdata import ProductInfo
 from core.handlers.pay import order, pre_checkout_query, successful_payment, shipping_check
 from core.middlewares.countermiddleware import CounterMiddleware
 from core.middlewares.officehours import OfficeHoursMiddleware
 from core.middlewares.dbmiddleware import DbSession
 from core.middlewares.apschedulermiddleware import SchedulerMiddleware
-import psycopg_pool  # asyncpg
-from core.handlers import form
-from core.utils.statesform import StepsForm
+# import psycopg_pool
+import asyncpg
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from core.handlers import apsched
 from datetime import datetime, timedelta
-from core.handlers import send_media
+from core.handlers.market import market_command, market_call, show_post_by_index, show_detailed_post
+from core.handlers.admin import admin_mode, admin_callback, \
+    add_product_photo, add_product_name, add_product_price, add_product_instock, add_product_check_successful, add_product_check_fail, \
+    button_next_added_product_photo
+from core.utils.statesform import ChatState, AdminState, AdminPanelState
+from core.utils.debugger import test_button
+from aiogram.utils.chat_action import ChatActionMiddleware
+from core.middlewares.example_chat_action_middleware import ExampleChatActionMiddleware
+from core.middlewares.jsonmiddleware import JsonMiddleware
 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
@@ -38,16 +43,15 @@ async def stop_bot(bot: Bot):
     await bot.send_message(settings.bots.admin_id, text='Bot stopped')
 
 
-def create_pool():  # async
-    return psycopg_pool.AsyncConnectionPool(f"host='database-3.cl20yqscghpa.eu-north-1.rds.amazonaws.com' port=5432 dbname=postgres user=postgres password=0CoKbFUL1IcxnIN1Ipeg "
-                                            f"connect_timeout=60")
-    # return await asyncpg.create_pool(user='postgres',
-    #                                  host='database-3.cl20yqscghpa.eu-north-1.rds.amazonaws.com',
-    #                                  password='0CoKbFUL1IcxnIN1Ipeg',
-    #                                  database='postgres',
-    #                                  port=5432,
-    #                                  # charset='utf8mb4',
-    #                                  command_timeout=60)
+async def create_pool():  # async
+    # return psycopg_pool.AsyncConnectionPool(f"host='localhost' port=5433 dbname=postgres user=postgres password=pCJbF34siSwvLgmevBL9 "
+    #                                         f"connect_timeout=60")
+    return await asyncpg.create_pool(user='postgres',
+                                     host='localhost',
+                                     password='pCJbF34siSwvLgmevBL9',
+                                     database='postgres',
+                                     port=5433,
+                                     command_timeout=60)
 
 
 async def start():
@@ -56,7 +60,7 @@ async def start():
                                 "(%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
                         )
     bot = Bot(token=settings.bots.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    pool_connect = create_pool()
+    pool_connect = await create_pool()
     dp = Dispatcher()
     scheduler = AsyncIOScheduler(timezone="Europe/Warsaw")
     # scheduler.add_job(apsched.send_message_time, trigger='date', run_date=datetime.now() + timedelta(seconds=10),
@@ -70,40 +74,35 @@ async def start():
     dp.message.middleware.register(CounterMiddleware())
     dp.message.middleware.register(OfficeHoursMiddleware())  # dp.update
     dp.update.middleware.register(SchedulerMiddleware(scheduler))
+    dp.update.middleware.register(ExampleChatActionMiddleware())
+    dp.message.middleware.register(JsonMiddleware())
     dp.startup.register(start_bot)
     dp.shutdown.register(stop_bot)
 
-    dp.message.register(send_media.get_audio, Command(commands='audio'))
-    dp.message.register(send_media.get_document, Command(commands='document'))
-    dp.message.register(send_media.get_media_group, Command(commands='mediagroup'))
-    dp.message.register(send_media.get_photo, Command(commands='photo'))
-    dp.message.register(send_media.get_sticker, Command(commands='sticker'))
-    dp.message.register(send_media.get_video, Command(commands='video'))
-    dp.message.register(send_media.get_video_note, Command(commands='video_note'))
-    dp.message.register(send_media.get_voice, Command(commands='voice'))
-
-    dp.message.register(form.get_form, Command(commands='form'))
-    dp.message.register(form.get_name, StepsForm.GET_NAME)
-    dp.message.register(form.get_last_name, StepsForm.GET_LAST_NAME)
-    dp.message.register(form.get_age, StepsForm.GET_AGE)
-
-    dp.message.register(order, Command(commands='pay'))
+    dp.callback_query.register(show_post_by_index, F.data.startswith('post_'), flags={'chat_action': 'upload_photo'})
+    dp.callback_query.register(order, F.data.startswith('buy_'), flags={'chat_action': 'typing'})
+    dp.callback_query.register(test_button, F.data == 'test_product_buy')
+    dp.message.register(contacts_info_command, Command(commands=['contact']))
+    dp.message.register(market_command, Command(commands=['market']))
+    dp.message.register(add_product_photo, F.photo, AdminState.ADD_PRODUCT)
+    dp.message.register(button_next_added_product_photo, F.text.lower() == 'далее', AdminState.ADD_PRODUCT)
+    dp.message.register(add_product_name, F.text, AdminState.ADDED_PRODUCT_PHOTO)
+    dp.message.register(add_product_price, F.text, AdminState.ADDED_PRODUCT_NAME)
+    dp.message.register(add_product_instock, F.text, AdminState.ADDED_PRODUCT_PRICE, flags={'chat_action': 'upload_photo'})
+    dp.message.register(add_product_check_successful, F.text.lower() == 'далее', AdminState.ADDED_PRODUCT_CHECK)
+    dp.message.register(add_product_check_fail, F.text, AdminState.ADDED_PRODUCT_CHECK)
     dp.pre_checkout_query.register(pre_checkout_query)
     dp.message.register(successful_payment, F.content_type == ContentType.SUCCESSFUL_PAYMENT)
     dp.shipping_query.register(shipping_check)
-    dp.message.register(get_location, F.location)
-    dp.message.register(get_photo, F.photo)
-    dp.message.register(get_sticker, F.sticker)
-    dp.message.register(get_voice, F.voice)
-    dp.message.register(get_hello, F.text.lower() == 'hello')
-    dp.message.register(get_true_contact, F.contact, IsTrueContact())
-    dp.message.register(get_fake_contact, F.contact)
-    dp.message.register(get_inline, Command(commands='inline'))
-    dp.callback_query.register(select_car, CarInfo.filter(F.brand == 'Nissan'))
-    dp.callback_query.register(select_start, F.data.startswith('start_'))
-    dp.message.register(get_start, CommandStart())
-    dp.message.register(form.get_form, F.text.lower() == 'анкета')
-    dp.message.register(get_repeat)
+    # dp.message.register(get_true_contact, F.contact, IsTrueContact())
+    # dp.message.register(get_fake_contact, F.contact)
+    dp.callback_query.register(contacts_info, F.data == 'contacts')
+    dp.callback_query.register(market_call, F.data == 'market')
+    dp.callback_query.register(send_contact_data, F.data.startswith('contacts_'))
+    dp.message.register(get_start, CommandStart(), flags={'chat_action': 'typing'})
+    dp.callback_query.register(admin_callback, AdminPanelState.ADMIN)
+    dp.message.register(admin_mode, Command(commands=['admin']), F.from_user.id == settings.bots.admin_id)
+    dp.message.register(get_message)
 
     try:
         await dp.start_polling(bot)
@@ -113,22 +112,6 @@ async def start():
 
 if __name__ == '__main__':
     asyncio.run(start())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # def test(params):

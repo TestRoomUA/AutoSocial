@@ -14,21 +14,20 @@ async def get_document(message: Message, bot: Bot):
 
 
 async def get_media_group(message: Message, bot: Bot):
-    async with ChatActionSender.upload_video(message.chat.id, bot):
-        photo1_mg = InputMediaPhoto(type='photo', media=FSInputFile(r'E:\PET-PROJECTS\AutoSocial\sticker-image-AgADIgEAAhzfMRU.png'),
-                                    caption='Its photo')
-        photo2_mg = InputMediaPhoto(type='photo', media=FSInputFile(r'E:\PET-PROJECTS\AutoSocial\sticker-image-AgADuDkAAg2rsUs.png'),
-                                    caption='Its photo too')
-        video1_mg = InputMediaVideo(type='video', media=FSInputFile(r'E:\PET-PROJECTS\AutoSocial\sticker-video-AgADtRkAAlVoaEo.mp4'),
-                                    caption='Now its video')
-        video2_mg = InputMediaVideo(type='video', media=FSInputFile(r'E:\PET-PROJECTS\AutoSocial\sticker-video-AgADDDgAAhp4IEo.mp4'))
-        media = [photo2_mg, photo1_mg, video2_mg, video1_mg]
-        await bot.send_media_group(message.chat.id, media)
+    photo1_mg = InputMediaPhoto(type='photo', media=FSInputFile(r'E:\PET-PROJECTS\AutoSocial\sticker-image-AgADIgEAAhzfMRU.png'),
+                                caption='Its photo')
+    photo2_mg = InputMediaPhoto(type='photo', media=FSInputFile(r'E:\PET-PROJECTS\AutoSocial\sticker-image-AgADuDkAAg2rsUs.png'),
+                                caption='Its photo too')
+    video1_mg = InputMediaVideo(type='video', media=FSInputFile(r'E:\PET-PROJECTS\AutoSocial\sticker-video-AgADtRkAAlVoaEo.mp4'),
+                                caption='Now its video')
+    video2_mg = InputMediaVideo(type='video', media=FSInputFile(r'E:\PET-PROJECTS\AutoSocial\sticker-video-AgADDDgAAhp4IEo.mp4'))
+    media = [photo2_mg, photo1_mg, video2_mg, video1_mg]
+    await bot.send_media_group(message.chat.id, media)
 
 
 async def get_photo(message: Message, bot: Bot):
     photo = FSInputFile(r'E:\PET-PROJECTS\AutoSocial\sticker-image-AgADwSEAAvNoGUk.png')
-    await bot.send_photo(message.chat.id, photo)
+    await bot.send_photo(message.chat.id, photo, caption='Photo')
 
 
 async def get_sticker(message: Message, bot: Bot):

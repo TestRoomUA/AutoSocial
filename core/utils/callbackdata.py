@@ -1,10 +1,15 @@
 from aiogram.filters.callback_data import CallbackData
 
 
-class CarInfo(CallbackData, prefix='car'):
-    brand: str
-    model: str
+class ProductInfo(CallbackData, prefix='product'):
+    type: str
+    name: str
+    index: int
+    description: str
     color: str
-    year: int
+    price: int
+    inStock: int
 
 
+class ProductID(CallbackData, prefix='productID'):
+    id: int

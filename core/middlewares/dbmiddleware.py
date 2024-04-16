@@ -1,13 +1,13 @@
 from typing import Callable, Awaitable, Dict, Any
-from psycopg_pool import AsyncConnectionPool
-# import asyncpg
+# from psycopg_pool import AsyncConnectionPool
+import asyncpg
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 from core.utils.dbconnect import Request
 
 
 class DbSession(BaseMiddleware):
-    def __init__(self, connector: AsyncConnectionPool):  # asyncpg.pool.Pool
+    def __init__(self, connector: asyncpg.pool.Pool):  # asyncpg.pool.Pool # AsyncConnectionPool
         super().__init__()
         self.connector = connector
 
@@ -16,6 +16,6 @@ class DbSession(BaseMiddleware):
                        event: TelegramObject,
                        data: Dict[str, Any],
     ) -> Any:
-        async with self.connector.connection() as connect:  # .acquire()
+        async with self.connector.acquire() as connect:  # .acquire() # .connection()
             data['request'] = Request(connect)
             return await handler(event, data)

@@ -38,4 +38,11 @@ def get_data_reply_keyboard():
     keyboard_builder.button(text='Номер телефона', request_contact=True)
     keyboard_builder.button(text='Анкета')
     keyboard_builder.adjust(2)
-    return keyboard_builder.as_markup(resize_keyboard=True, one_time_keyboard=False)
+    return keyboard_builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
+
+
+def admin_add_photo_reply_keyboard():
+    keyboard_builder = ReplyKeyboardBuilder()
+    keyboard_builder.button(text='Далее')
+    keyboard_builder.adjust(1)
+    return keyboard_builder.as_markup(resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Отправьте ещё фото, либо нажмите кнопку 'Далее'")
