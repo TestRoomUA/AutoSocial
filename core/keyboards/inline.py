@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from core.utils.callbackdata import ProductInfo, ProductID
 
+
 select_car = InlineKeyboardMarkup(inline_keyboard=[
     [
         InlineKeyboardButton(
@@ -77,17 +78,25 @@ def market_start_keyboard():
     return keyboard_builder.as_markup()
 
 
-def market_product_keyboard(productID: int):
+def market_product_keyboard(pageID: int):
     keyboard_builder = InlineKeyboardBuilder()
-    if productID > 1:
-        keyboard_builder.button(text='<', callback_data=f'post_{productID - 1}')
-    keyboard_builder.button(text=f'({productID+1})', callback_data='current_page')
-    keyboard_builder.button(text='>', callback_data=f'post_{productID + 1}')
-    keyboard_builder.button(text='Заказать с доставкой', callback_data=f'buy_{productID}')
-    if productID > 1:
+    if pageID > 0:
+        keyboard_builder.button(text='<', callback_data=f'post_{pageID - 1}')
+    keyboard_builder.button(text=f'({pageID + 1})', callback_data='current_page')
+    keyboard_builder.button(text='>', callback_data=f'post_{pageID + 1}')
+    keyboard_builder.button(text='Подробнее', callback_data=f'detailed_{pageID}')
+    if pageID > 0:
         keyboard_builder.adjust(3, 1)
     else:
         keyboard_builder.adjust(2, 1)
+    return keyboard_builder.as_markup()
+
+
+def detailed_product_keyboard(productID: int):
+    keyboard_builder = InlineKeyboardBuilder()
+    keyboard_builder.button(text='Заказать с доставкой', callback_data=f'buy_{productID}')
+    keyboard_builder.button(text='Вернутся к просмотру', callback_data=f'post_{productID}')
+    keyboard_builder.adjust(1)
     return keyboard_builder.as_markup()
 
 
@@ -104,5 +113,13 @@ def admin_keyboard():
 def product_test_keyboard():
     keyboard_builder = InlineKeyboardBuilder()
     keyboard_builder.button(text='Заказать с доставкой', callback_data='test_product_buy')
+    keyboard_builder.adjust(1)
+    return keyboard_builder.as_markup()
+
+
+def channel_post_keyboard(link: str):
+    keyboard_builder = InlineKeyboardBuilder()
+
+    keyboard_builder.button(text='Перейти к боту', url=link)
     keyboard_builder.adjust(1)
     return keyboard_builder.as_markup()

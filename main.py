@@ -2,7 +2,7 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ContentType
-from core.handlers.basic import get_start, get_message, contacts_info_command
+from core.handlers.basic import get_start, get_start_post, get_message, contacts_info_command
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 import asyncio
@@ -14,6 +14,7 @@ from core.handlers.callback import contacts_info, send_contact_data
 from core.utils.callbackdata import ProductInfo
 from core.handlers.pay import order, pre_checkout_query, successful_payment, shipping_check
 from core.middlewares.countermiddleware import CounterMiddleware
+from core.middlewares.commandmiddleware import CommandMiddleware
 from core.middlewares.officehours import OfficeHoursMiddleware
 from core.middlewares.dbmiddleware import DbSession
 from core.middlewares.apschedulermiddleware import SchedulerMiddleware
@@ -24,7 +25,7 @@ from core.handlers import apsched
 from datetime import datetime, timedelta
 from core.handlers.market import market_command, market_call, show_post_by_index, show_detailed_post
 from core.handlers.admin import admin_mode, admin_callback, \
-    add_product_photo, add_product_name, add_product_price, add_product_instock, add_product_check_successful, add_product_check_fail, \
+    add_product_photo, add_product_name, add_product_price, add_product_quantity, add_product_check_successful, add_product_check_fail, \
     button_next_added_product_photo
 from core.utils.statesform import ChatState, AdminState, AdminPanelState
 from core.utils.debugger import test_button
@@ -67,11 +68,12 @@ async def start():
     #                   kwargs={'bot': bot})
     # scheduler.add_job(apsched.send_message_cron, trigger='cron', hour=datetime.now().hour, minute=datetime.now().minute + 1,
     #                   start_date=datetime.now(), kwargs={'bot': bot})
-    # scheduler.add_job(apsched.send_message_interval, trigger='interval', seconds=60, kwargs={'bot': bot})
+    # scheduler.add_job(apsched.send_news_products, trigger='interval', seconds=30, kwargs={'bot': bot, 'post_count': 1})
     scheduler.start()
 
     dp.update.middleware.register(DbSession(pool_connect))
     dp.message.middleware.register(CounterMiddleware())
+    # dp.message.middleware.register(CommandMiddleware())
     dp.message.middleware.register(OfficeHoursMiddleware())  # dp.update
     dp.update.middleware.register(SchedulerMiddleware(scheduler))
     dp.update.middleware.register(ExampleChatActionMiddleware())
@@ -80,6 +82,7 @@ async def start():
     dp.shutdown.register(stop_bot)
 
     dp.callback_query.register(show_post_by_index, F.data.startswith('post_'), flags={'chat_action': 'upload_photo'})
+    dp.callback_query.register(show_detailed_post, F.data.startswith('detailed_'), flags={'chat_action': 'upload_photo'})
     dp.callback_query.register(order, F.data.startswith('buy_'), flags={'chat_action': 'typing'})
     dp.callback_query.register(test_button, F.data == 'test_product_buy')
     dp.message.register(contacts_info_command, Command(commands=['contact']))
@@ -88,7 +91,7 @@ async def start():
     dp.message.register(button_next_added_product_photo, F.text.lower() == 'далее', AdminState.ADD_PRODUCT)
     dp.message.register(add_product_name, F.text, AdminState.ADDED_PRODUCT_PHOTO)
     dp.message.register(add_product_price, F.text, AdminState.ADDED_PRODUCT_NAME)
-    dp.message.register(add_product_instock, F.text, AdminState.ADDED_PRODUCT_PRICE, flags={'chat_action': 'upload_photo'})
+    dp.message.register(add_product_quantity, F.text, AdminState.ADDED_PRODUCT_PRICE, flags={'chat_action': 'upload_photo'})
     dp.message.register(add_product_check_successful, F.text.lower() == 'далее', AdminState.ADDED_PRODUCT_CHECK)
     dp.message.register(add_product_check_fail, F.text, AdminState.ADDED_PRODUCT_CHECK)
     dp.pre_checkout_query.register(pre_checkout_query)
@@ -99,6 +102,7 @@ async def start():
     dp.callback_query.register(contacts_info, F.data == 'contacts')
     dp.callback_query.register(market_call, F.data == 'market')
     dp.callback_query.register(send_contact_data, F.data.startswith('contacts_'))
+    dp.message.register(get_start_post, CommandStart(deep_link=True), flags={'chat_action': 'typing'})
     dp.message.register(get_start, CommandStart(), flags={'chat_action': 'typing'})
     dp.callback_query.register(admin_callback, AdminPanelState.ADMIN)
     dp.message.register(admin_mode, Command(commands=['admin']), F.from_user.id == settings.bots.admin_id)

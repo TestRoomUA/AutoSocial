@@ -110,7 +110,7 @@ async def order(call: CallbackQuery, bot: Bot, request: Request):
         suggested_tip_amounts=[500, 1500, 5000, 15000],
         start_parameter='',
         provider_data=None,
-        photo_url=fr"{settings.bots.content_path}\{post_data['photos'][0]}",
+        photo_url=fr"{settings.media.content}\{post_data['photos'][0]}",
         photo_size=100,
         photo_width=800,
         photo_height=800,
@@ -134,7 +134,7 @@ async def pre_checkout_query(pre_checkout_query: PreCheckoutQuery, bot: Bot):
     await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
 
-async def successful_payment(message: Message, request: Request):
+async def successful_payment(message: Message, bot: Bot, request: Request):
     productID = int(message.successful_payment.invoice_payload)
     await get_json(message)
 
@@ -146,15 +146,15 @@ async def successful_payment(message: Message, request: Request):
 
     msg = f'Спасибо что выбрали нас! Оплата прошла успешно:  {total_amount}.00 {currency}. \r\n' \
           f'Скоро наш менеджер свяжеться с вами для уточнения деталей. \r\n'
-    photo = FSInputFile(fr'{settings.bots.content_path}\success-payment.jpg')
+    photo = FSInputFile(fr'{settings.media.content}\success-payment.jpg')
     await message.bot.send_photo(chat_id=message.chat.id, photo=photo, caption=msg)
 
     user_id = message.from_user.id
     user_name = message.successful_payment.order_info.name
+    user_phone = message.successful_payment.order_info.phone_number
 
     shipping_address = message.successful_payment.order_info.shipping_address
     user_address = [shipping_address.country_code, shipping_address.state, shipping_address.city,
                     shipping_address.street_line1, shipping_address.street_line2, shipping_address.post_code]
-    print(user_address)
-    user_phone = message.successful_payment.order_info.phone_number
+    await bot.send_message(chat_id=settings.bots.admin_id, text=f"{productID}\r\n{ total_amount} {user_id} \r\n{user_name}\r\n{ user_address}\r\n{ user_phone}")
     await request.add_order(productID, total_amount, user_id, user_name, user_address, user_phone)

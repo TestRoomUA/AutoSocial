@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 
 
 async def get_json(message: Message):
-    json_str = json.dumps(message.dict(), default=str, indent=4)
+    json_str = json.dumps(message.dict(), default=str)
     print('\r\n' + json_str + '\r\n')
     return json_str
 

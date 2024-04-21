@@ -7,6 +7,10 @@ from core.keyboards.reply import admin_add_photo_reply_keyboard
 from core.utils.dbconnect import Request
 from aiogram.fsm.context import FSMContext
 from core.utils.statesform import AdminState, AdminPanelState
+from core.utils.objects import Post
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from core.handlers.apsched import post_channel
+from datetime import datetime, timedelta
 from core.settings import settings
 
 
@@ -17,7 +21,7 @@ async def admin_mode(message: Message, bot: Bot, state: FSMContext):
     await state.set_state(AdminPanelState.ADMIN)
     msg = f'{message.from_user.first_name}, вы зашли в Админ панель!'
 
-    photo = FSInputFile(fr'E:\PET-PROJECTS\AutoSocial\Content\0.png')
+    photo = FSInputFile(fr'{settings.media.content}\0.png')
     await bot.send_photo(message.chat.id, photo, caption=msg, reply_markup=admin_keyboard())
 
 
@@ -35,7 +39,7 @@ async def admin_callback(call: CallbackQuery, bot: Bot, state: FSMContext, reque
                 case 'list':
                     await state.set_state(AdminState.WATCH_LIST)
                     post_data = await request.take_product(3)
-                    photo = FSInputFile(fr"{settings.bots.content_path}\{post_data['photos'][0]}")
+                    photo = FSInputFile(fr"{settings.media.content}\{post_data['photos'][0]}")
                     name = post_data['name']
                     price = post_data['price']
                     count = post_data['count']
@@ -92,34 +96,39 @@ async def add_product_price(message: Message, bot: Bot, state: FSMContext):
     await state.set_state(AdminState.ADDED_PRODUCT_PRICE)
 
 
-async def add_product_instock(message: Message, bot: Bot, state: FSMContext):
-    instock = int(message.text)
-    await state.update_data(instock=instock)
-    await message.answer(f'Данные готовы, так выглядит ваш продукт. Елси всё супер, добавляем. [да, нет]')
+async def add_product_quantity(message: Message, bot: Bot, state: FSMContext):
+    count = int(message.text)
+    await state.update_data(count=count)
+    await message.answer(f'Данные готовы, так выглядит ваш продукт. Елси всё супер, скажите Далее')
     context_data = await state.get_data()
     name = context_data.get('name')
     photos = context_data.get('photos')
     price = context_data.get('price')
-    media = [InputMediaPhoto(type='photo', media=FSInputFile(fr"{settings.bots.content_path}\{photo}")) for photo in photos]
-    media[0].caption = f'{name}\r\n{price}zł \r\nВ наличии: {instock}'
+    media = [InputMediaPhoto(type='photo', media=FSInputFile(fr"{settings.media.content}\{photo}")) for photo in photos]
+    media[0].caption = f'{name}\r\n{price}zł \r\nВ наличии: {count}'
     media[0].reply_markup = product_test_keyboard()
     await bot.send_media_group(chat_id=message.chat.id, media=media)
     await state.set_state(AdminState.ADDED_PRODUCT_CHECK)
 
 
-async def add_product_check_successful(message: Message, bot: Bot, state: FSMContext, request: Request):
-
+async def add_product_check_successful(message: Message, bot: Bot, state: FSMContext, request: Request, apscheduler: AsyncIOScheduler):
     await message.answer('perfect')
     context_data = await state.get_data()
     name = context_data.get('name')
     photos = context_data.get('photos')
     price = context_data.get('price')
-    instock = context_data.get('instock')
-    # filesname = []
-    # filesname.append(context_data.get('photo_1'))
-    # filesname.append(context_data.get('photo_2'))
-    # filesname.append(context_data.get('photo_3'))
-    await request.add_product(name, price, instock, photos)
+    count = context_data.get('count')
+    db_answer = await request.add_product(name, price, count, photos)
+    db_count = await request.take_product_count()
+    apscheduler.add_job(post_channel,
+                        trigger='date',
+                        run_date=datetime.now() + timedelta(seconds=10),
+                        kwargs={'bot': bot, 'post': Post(db_id=db_answer['id'],
+                                                         page=db_count,
+                                                         photos=photos,
+                                                         title=name,
+                                                         price=price,
+                                                         count=count)})
     await state.clear()
 
 

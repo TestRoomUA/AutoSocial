@@ -36,22 +36,51 @@ class Request:
         await self.connector.execute(query)
 
     async def add_product(self, product_name: str, product_price: int, stock: int, photos: List[str]):
-        photos_str = ', '.join([f"{photo}" for photo in photos])
-        query = f"INSERT INTO products (name, price, count, photos) VALUES ('{product_name}', {product_price}, {stock}, '{{ {photos_str} }}'::text[]) "
-        await self.connector.execute(query)
+        try:
+            photos_str = ', '.join([f"{photo}" for photo in photos])
+            query = f"INSERT INTO products (name, price, count, photos) " \
+                    f"VALUES ('{product_name}', {product_price}, {stock}, '{{ {photos_str} }}'::text[]) " \
+                    f"RETURNING id;"
+            result = await self.connector.fetchrow(query)
+            return result
+        except asyncpg.PostgresError as e:
+            print(e)
 
     async def take_product(self, product_id: int):
         try:
-            query = f"SELECT * FROM products ORDER BY id ASC OFFSET $1 LIMIT 1"
+            query = f"SELECT *, ROW_NUMBER() OVER () AS rnum " \
+                    f"FROM products ORDER BY id ASC OFFSET $1 LIMIT 1;"
             result = await self.connector.fetchrow(query, product_id)
             return result
         except asyncpg.PostgresError as e:
+            print(e)
+
+    async def take_product_by_id(self, db_id: int):
+        query = ""
+        try:
+            query = f"SELECT * FROM ( SELECT *, ROW_NUMBER() OVER ( ORDER BY id ) AS rnum " \
+                    f"FROM products ) x WHERE id = {db_id}"
+            result = await self.connector.fetchrow(query)
+            return result
+        except asyncpg.PostgresError as e:
+            print(query)
             print(e)
 
     async def take_product_count(self):
         try:
             query = f"SELECT count(*) FROM products"
             result = await self.connector.fetchrow(query)
+            print(result)
+            return result
+        except asyncpg.PostgresError as e:
+            print(e)
+
+    async def take_new_count(self):
+        try:
+            query = f"SELECT count(*) as new, new_count as old FROM products, datatest ORDER BY datatest.id DESC LIMIT 1" \
+                    f"INSERT INTO datatest (new_count) VALUES (new)"
+            req = await self.connector.fetchrow(query)
+            result = req['new'] - req['old']
             return result
         except asyncpg.PostgresError as e:
             print(e)
