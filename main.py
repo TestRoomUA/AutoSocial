@@ -1,8 +1,6 @@
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, ContentType
-from core.handlers.basic import get_start, get_start_post, get_message, contacts_info_command
+from core.handlers.basic import get_start, get_start_post, get_message
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 import asyncio
@@ -10,25 +8,16 @@ import logging
 from core.settings import settings
 from aiogram.filters import Command, CommandStart
 from core.utils.commands import set_commands
-from core.handlers.callback import contacts_info, send_contact_data
-from core.utils.callbackdata import ProductInfo
-from core.handlers.pay import order, pre_checkout_query, successful_payment, shipping_check
 from core.middlewares.countermiddleware import CounterMiddleware
-from core.middlewares.commandmiddleware import CommandMiddleware
 from core.middlewares.officehours import OfficeHoursMiddleware
 from core.middlewares.dbmiddleware import DbSession
 from core.middlewares.apschedulermiddleware import SchedulerMiddleware
-# import psycopg_pool
 import asyncpg
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from core.handlers import apsched
 from datetime import datetime, timedelta
-from core.handlers.market import market_command, market_call, show_post_by_index, show_detailed_post
-from core.handlers.admin import admin_mode, admin_callback, \
-    add_product_photo, add_product_name, add_product_price, add_product_quantity, add_product_check_successful, add_product_check_fail, \
-    button_next_added_product_photo
-from core.utils.statesform import ChatState, AdminState, AdminPanelState
-from core.utils.debugger import test_button
+from core.handlers.admin import admin_mode, admin_callback
+from core.utils.statesform import AdminPanelState
 from aiogram.utils.chat_action import ChatActionMiddleware
 from core.middlewares.example_chat_action_middleware import ExampleChatActionMiddleware
 from core.middlewares.jsonmiddleware import JsonMiddleware
@@ -44,9 +33,7 @@ async def stop_bot(bot: Bot):
     await bot.send_message(settings.bots.admin_id, text='Bot stopped')
 
 
-async def create_pool():  # async
-    # return psycopg_pool.AsyncConnectionPool(f"host='localhost' port=5433 dbname=postgres user=postgres password=pCJbF34siSwvLgmevBL9 "
-    #                                         f"connect_timeout=60")
+async def create_pool():
     return await asyncpg.create_pool(user='postgres',
                                      host='localhost',
                                      password='pCJbF34siSwvLgmevBL9',
@@ -81,27 +68,6 @@ async def start():
     dp.startup.register(start_bot)
     dp.shutdown.register(stop_bot)
 
-    dp.callback_query.register(show_post_by_index, F.data.startswith('post_'), flags={'chat_action': 'upload_photo'})
-    dp.callback_query.register(show_detailed_post, F.data.startswith('detailed_'), flags={'chat_action': 'upload_photo'})
-    dp.callback_query.register(order, F.data.startswith('buy_'), flags={'chat_action': 'typing'})
-    dp.callback_query.register(test_button, F.data == 'test_product_buy')
-    dp.message.register(contacts_info_command, Command(commands=['contact']))
-    dp.message.register(market_command, Command(commands=['market']))
-    dp.message.register(add_product_photo, F.photo, AdminState.ADD_PRODUCT)
-    dp.message.register(button_next_added_product_photo, F.text.lower() == 'далее', AdminState.ADD_PRODUCT)
-    dp.message.register(add_product_name, F.text, AdminState.ADDED_PRODUCT_PHOTO)
-    dp.message.register(add_product_price, F.text, AdminState.ADDED_PRODUCT_NAME)
-    dp.message.register(add_product_quantity, F.text, AdminState.ADDED_PRODUCT_PRICE, flags={'chat_action': 'upload_photo'})
-    dp.message.register(add_product_check_successful, F.text.lower() == 'далее', AdminState.ADDED_PRODUCT_CHECK)
-    dp.message.register(add_product_check_fail, F.text, AdminState.ADDED_PRODUCT_CHECK)
-    dp.pre_checkout_query.register(pre_checkout_query)
-    dp.message.register(successful_payment, F.content_type == ContentType.SUCCESSFUL_PAYMENT)
-    dp.shipping_query.register(shipping_check)
-    # dp.message.register(get_true_contact, F.contact, IsTrueContact())
-    # dp.message.register(get_fake_contact, F.contact)
-    dp.callback_query.register(contacts_info, F.data == 'contacts')
-    dp.callback_query.register(market_call, F.data == 'market')
-    dp.callback_query.register(send_contact_data, F.data.startswith('contacts_'))
     dp.message.register(get_start_post, CommandStart(deep_link=True), flags={'chat_action': 'typing'})
     dp.message.register(get_start, CommandStart(), flags={'chat_action': 'typing'})
     dp.callback_query.register(admin_callback, AdminPanelState.ADMIN)
@@ -116,83 +82,3 @@ async def start():
 
 if __name__ == '__main__':
     asyncio.run(start())
-
-
-# def test(params):
-#     city = params[0]
-#     if city in ["", " "]:
-#         city = input("dont understand:( Can you write city here: ")
-#     response = requests.get(f'http://api.weatherapi.com/v1/current.json?key=3a30e305fa724e968e0184025240803&q={city}&aqi=no')
-#     data = response.json()
-#
-#     _city = data["location"]['name']
-#     time = data["current"]['last_updated']
-#     temp = data['current']['temp_c']
-#     print(f'{_city}, {time}. Temperature is {temp}C°')
-#
-#
-# def weather(params):
-#     match params[0]:
-#         case "now":
-#             test()
-#         case _:
-#             test()
-
-
-# def get_data(filepath):
-#     data = {}
-#     if not os.path.isfile(filepath):
-#         with open(filepath, "x") as f:
-#             print("file is created")
-#     else:
-#         with open(filepath, "r") as f:
-#             data = json.load(f)
-#         print("...Data waiting...")
-#     if data == {}:
-#         data = json.dumps({"accounts": []}, indent=4)
-#     if len(data["accounts"]) == 0:
-#         print("...Creating first acc..")
-#         add_exist_acc(input("Input Username: "), input("Input Password: "), filepath)
-#
-#     print("...print Data...")
-#     for i in range(len(data["accounts"])): print(data["accounts"][i]["username"])
-#     return data
-# def add_exist_acc(username, password, filepath):
-#     new_acc = {
-#         "username": username,
-#         "password": password
-#     }
-#     with open(filepath, "r") as f:
-#         data = json.load(f)
-#         data["accounts"].append(new_acc)
-#     with open(filepath, "w") as f:
-#         json.dump(data, f)
-#     get_data(filepath)
-# def login(username, password):
-#     print(username)
-#
-#
-# def input_validate(text):
-#     text = text.lstrip()
-#     return text.lower()
-#
-#
-# def wait_command():
-#     while True:
-#         user_input = input("Write: ")
-#         user_input = input_validate(user_input)
-#         keys = user_input.split()
-#         command = keys[0]
-#         params = keys[1:len(keys)]
-#         match command:
-#             case "weather":
-#                 weather(params)
-#             case "exit":
-#                 break
-#             case _:
-#                 continue
-
-
-
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/

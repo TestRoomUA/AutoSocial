@@ -1,8 +1,7 @@
 from typing import List
-
 from aiogram import Bot
 from aiogram.types import Message, FSInputFile, InputMediaPhoto, CallbackQuery
-from core.keyboards.inline import admin_keyboard, product_test_keyboard
+from core.keyboards.inline import admin_keyboard
 from core.keyboards.reply import admin_add_photo_reply_keyboard
 from core.utils.dbconnect import Request
 from aiogram.fsm.context import FSMContext
@@ -19,9 +18,9 @@ async def admin_mode(message: Message, bot: Bot, state: FSMContext):
         return
 
     await state.set_state(AdminPanelState.ADMIN)
-    msg = f'{message.from_user.first_name}, вы зашли в Админ панель!'
+    msg = f'{message.from_user.first_name}, You in admin apnel!'
 
-    photo = FSInputFile(fr'{settings.media.content}\0.png')
+    photo = FSInputFile(fr'{settings.media.content}\admin.png')
     await bot.send_photo(message.chat.id, photo, caption=msg, reply_markup=admin_keyboard())
 
 
