@@ -1,3 +1,5 @@
+import random
+
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from core.utils.callbackdata import ProductInfo, ProductID
@@ -66,14 +68,14 @@ def contacts_inline_keyboard():
     keyboard_builder = InlineKeyboardBuilder()
     keyboard_builder.button(text="Номер телефона", callback_data='contacts_phone')
     keyboard_builder.button(text='Наша точка', url='https://maps.app.goo.gl/hWprhs6bS8NCAGM5A')
-    keyboard_builder.button(text='Наш телеграм канал', url='tg://user?id=814140059')
+    keyboard_builder.button(text='Наш телеграм канал', url='https://t.me/+Xh2vMre6bmQ3MGU6')
     keyboard_builder.adjust(1)
     return keyboard_builder.as_markup()
 
 
 def market_start_keyboard():
     keyboard_builder = InlineKeyboardBuilder()
-    keyboard_builder.button(text='ХИТ СЕЗОНА', callback_data='post_0')
+    keyboard_builder.button(text='ХИТ СЕЗОНА', callback_data='post_edit_0')
     keyboard_builder.adjust(1)
     return keyboard_builder.as_markup()
 
@@ -81,10 +83,10 @@ def market_start_keyboard():
 def market_product_keyboard(pageID: int):
     keyboard_builder = InlineKeyboardBuilder()
     if pageID > 0:
-        keyboard_builder.button(text='<', callback_data=f'post_{pageID - 1}')
+        keyboard_builder.button(text='<', callback_data=f'post_edit_{pageID - 1}')
     keyboard_builder.button(text=f'({pageID + 1})', callback_data='current_page')
-    keyboard_builder.button(text='>', callback_data=f'post_{pageID + 1}')
-    keyboard_builder.button(text='Подробнее', callback_data=f'detailed_{pageID}')
+    keyboard_builder.button(text='>', callback_data=f'post_edit_{pageID + 1}')
+    keyboard_builder.button(text='Подробнее', callback_data=f'post_detailed_{pageID}')
     if pageID > 0:
         keyboard_builder.adjust(3, 1)
     else:
@@ -92,10 +94,10 @@ def market_product_keyboard(pageID: int):
     return keyboard_builder.as_markup()
 
 
-def detailed_product_keyboard(productID: int):
+def detailed_product_keyboard(pageID: int):
     keyboard_builder = InlineKeyboardBuilder()
-    keyboard_builder.button(text='Заказать с доставкой', callback_data=f'buy_{productID}')
-    keyboard_builder.button(text='Вернутся к просмотру', callback_data=f'post_{productID}')
+    keyboard_builder.button(text='Заказать с доставкой', callback_data=f'buy_{pageID}')
+    keyboard_builder.button(text='< Вернутся к просмотру', callback_data=f'post_create_{pageID}')
     keyboard_builder.adjust(1)
     return keyboard_builder.as_markup()
 
@@ -120,6 +122,6 @@ def product_test_keyboard():
 def channel_post_keyboard(link: str):
     keyboard_builder = InlineKeyboardBuilder()
 
-    keyboard_builder.button(text='Перейти к боту', url=link)
+    keyboard_builder.button(text=f"Перейти к боту{random.choice(['💐','🏵️','💮','🌸','🌹','🌺','🌻','🌼','🌷'])}", url=link)
     keyboard_builder.adjust(1)
     return keyboard_builder.as_markup()

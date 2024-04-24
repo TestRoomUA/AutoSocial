@@ -2,8 +2,9 @@ from typing import Callable, Awaitable, Dict, Any
 # from psycopg_pool import AsyncConnectionPool
 import asyncpg
 from aiogram import BaseMiddleware
-from aiogram.types import TelegramObject
+from aiogram.types import TelegramObject, Message, CallbackQuery
 from core.utils.dbconnect import Request
+from core.handlers.basic import get_now
 
 
 class DbSession(BaseMiddleware):
@@ -17,5 +18,10 @@ class DbSession(BaseMiddleware):
                        data: Dict[str, Any],
     ) -> Any:
         async with self.connector.acquire() as connect:  # .acquire() # .connection()
-            data['request'] = Request(connect)
+            request = Request(connect)
+            data['request'] = request
+            # if isinstance(event, TelegramObject):
+            #     await request.update_user_online(event.chat.id, get_now())
+            # elif isinstance(event, CallbackQuery):
+            #     await request.update_user_online(event.from_user.id, get_now())
             return await handler(event, data)

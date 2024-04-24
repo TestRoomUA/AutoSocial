@@ -1,8 +1,8 @@
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, ContentType
-from core.handlers.basic import get_start, get_start_post, get_message, contacts_info_command
+from aiogram.types import ContentType
+from core.handlers.basic import get_start, get_start_deep_link, get_message, contacts_info
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.enums import ParseMode
 import asyncio
@@ -10,24 +10,23 @@ import logging
 from core.settings import settings
 from aiogram.filters import Command, CommandStart
 from core.utils.commands import set_commands
-from core.handlers.callback import contacts_info, send_contact_data
-from core.utils.callbackdata import ProductInfo
+from core.handlers.callback import contacts_info_call, send_contact_data
 from core.handlers.pay import order, pre_checkout_query, successful_payment, shipping_check
 from core.middlewares.countermiddleware import CounterMiddleware
-from core.middlewares.commandmiddleware import CommandMiddleware
 from core.middlewares.officehours import OfficeHoursMiddleware
 from core.middlewares.dbmiddleware import DbSession
 from core.middlewares.apschedulermiddleware import SchedulerMiddleware
+from core.middlewares.guestmiddleware import GuestCounterMiddleware
 # import psycopg_pool
 import asyncpg
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from core.handlers import apsched
 from datetime import datetime, timedelta
-from core.handlers.market import market_command, market_call, show_post_by_index, show_detailed_post
+from core.handlers.market import market_open, market_call, show_post
 from core.handlers.admin import admin_mode, admin_callback, \
     add_product_photo, add_product_name, add_product_price, add_product_quantity, add_product_check_successful, add_product_check_fail, \
     button_next_added_product_photo
-from core.utils.statesform import ChatState, AdminState, AdminPanelState
+from core.utils.statesform import AdminState, AdminPanelState
 from core.utils.debugger import test_button
 from aiogram.utils.chat_action import ChatActionMiddleware
 from core.middlewares.example_chat_action_middleware import ExampleChatActionMiddleware
@@ -73,7 +72,7 @@ async def start():
 
     dp.update.middleware.register(DbSession(pool_connect))
     dp.message.middleware.register(CounterMiddleware())
-    # dp.message.middleware.register(CommandMiddleware())
+    dp.message.middleware.register(GuestCounterMiddleware())
     dp.message.middleware.register(OfficeHoursMiddleware())  # dp.update
     dp.update.middleware.register(SchedulerMiddleware(scheduler))
     dp.update.middleware.register(ExampleChatActionMiddleware())
@@ -81,12 +80,16 @@ async def start():
     dp.startup.register(start_bot)
     dp.shutdown.register(stop_bot)
 
-    dp.callback_query.register(show_post_by_index, F.data.startswith('post_'), flags={'chat_action': 'upload_photo'})
-    dp.callback_query.register(show_detailed_post, F.data.startswith('detailed_'), flags={'chat_action': 'upload_photo'})
+    dp.callback_query.register(show_post, F.data.startswith('post_'), flags={'chat_action': 'upload_photo'})
     dp.callback_query.register(order, F.data.startswith('buy_'), flags={'chat_action': 'typing'})
     dp.callback_query.register(test_button, F.data == 'test_product_buy')
-    dp.message.register(contacts_info_command, Command(commands=['contact']))
-    dp.message.register(market_command, Command(commands=['market']))
+
+    dp.message.register(contacts_info, Command(commands=['contact']))
+    dp.callback_query.register(contacts_info_call, F.data == 'contacts')
+
+    dp.message.register(market_open, Command(commands=['market']))
+    dp.callback_query.register(market_call, F.data.startswith('market'))
+
     dp.message.register(add_product_photo, F.photo, AdminState.ADD_PRODUCT)
     dp.message.register(button_next_added_product_photo, F.text.lower() == 'далее', AdminState.ADD_PRODUCT)
     dp.message.register(add_product_name, F.text, AdminState.ADDED_PRODUCT_PHOTO)
@@ -99,10 +102,8 @@ async def start():
     dp.shipping_query.register(shipping_check)
     # dp.message.register(get_true_contact, F.contact, IsTrueContact())
     # dp.message.register(get_fake_contact, F.contact)
-    dp.callback_query.register(contacts_info, F.data == 'contacts')
-    dp.callback_query.register(market_call, F.data == 'market')
     dp.callback_query.register(send_contact_data, F.data.startswith('contacts_'))
-    dp.message.register(get_start_post, CommandStart(deep_link=True), flags={'chat_action': 'typing'})
+    dp.message.register(get_start_deep_link, CommandStart(deep_link=True), flags={'chat_action': 'typing'})
     dp.message.register(get_start, CommandStart(), flags={'chat_action': 'typing'})
     dp.callback_query.register(admin_callback, AdminPanelState.ADMIN)
     dp.message.register(admin_mode, Command(commands=['admin']), F.from_user.id == settings.bots.admin_id)

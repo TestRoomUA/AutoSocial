@@ -8,10 +8,10 @@ async def set_commands(bot: Bot):
             command='start',
             description='Start work'
         ),
-        BotCommand(
-            command='help',
-            description='HELP, all functions'
-        ),
+        # BotCommand(
+        #     command='help',
+        #     description='HELP, all functions'
+        # ),
         BotCommand(
             command='contact',
             description='Our contacts'

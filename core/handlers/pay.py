@@ -1,12 +1,10 @@
 from aiogram import Bot
 from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, InlineKeyboardButton, InlineKeyboardMarkup,\
     ShippingOption, ShippingQuery, FSInputFile
-from core.utils.callbackdata import ProductInfo
 from aiogram.types import CallbackQuery
 from core.utils.dbconnect import Request
 from core.utils.debugger import get_json
 from core.settings import settings
-from core.utils.callbackdata import ProductInfo
 
 keyboards = InlineKeyboardMarkup(inline_keyboard=[
     [
@@ -84,8 +82,8 @@ async def shipping_check(shipping_query: ShippingQuery, bot: Bot):
 
 async def order(call: CallbackQuery, bot: Bot, request: Request):
     call_data = call.data.split('_')
-    index = int(call_data[1])
-    post_data = await request.take_product(index)
+    page = int(call_data[1])
+    post_data = await request.take_product(page)
     desc = post_data['description']
     if desc is None:
         desc = ""
@@ -93,8 +91,8 @@ async def order(call: CallbackQuery, bot: Bot, request: Request):
         chat_id=call.message.chat.id,
         title=f"{post_data['name']}\r\n",
         description=f"{desc} \r\n{post_data['count']} в букете \r\n",
-        payload=str(index),
-        provider_token='410694247:TEST:c3421322-ca26-442d-8f7d-553c98ba2076',
+        payload=str(page),
+        provider_token=settings.bots.provider_token,
         currency='PLN',
         prices=[
             LabeledPrice(
@@ -110,10 +108,10 @@ async def order(call: CallbackQuery, bot: Bot, request: Request):
         suggested_tip_amounts=[500, 1500, 5000, 15000],
         start_parameter='',
         provider_data=None,
-        photo_url=fr"{settings.media.content}\{post_data['photos'][0]}",
+        photo_url=fr"https://assets.answersingenesis.org/img/cms/content/contentnode/header_image/is-origin-of-flowering-plants-mystery.jpg",
         photo_size=100,
-        photo_width=800,
-        photo_height=800,
+        photo_width=945,
+        photo_height=300,
         need_name=True,
         need_phone_number=True,
         need_email=True,
@@ -140,6 +138,7 @@ async def successful_payment(message: Message, bot: Bot, request: Request):
 
     post_data = await request.take_product(productID)
     productID = post_data['id']
+    product_name = post_data['name']
 
     total_amount = message.successful_payment.total_amount // 100
     currency = message.successful_payment.currency
@@ -156,5 +155,7 @@ async def successful_payment(message: Message, bot: Bot, request: Request):
     shipping_address = message.successful_payment.order_info.shipping_address
     user_address = [shipping_address.country_code, shipping_address.state, shipping_address.city,
                     shipping_address.street_line1, shipping_address.street_line2, shipping_address.post_code]
-    await bot.send_message(chat_id=settings.bots.admin_id, text=f"{productID}\r\n{ total_amount} {user_id} \r\n{user_name}\r\n{ user_address}\r\n{ user_phone}")
+    await bot.send_message(chat_id=settings.bots.admin_id, text=f"Новая доставка:\r\nProduct: {product_name} \r\nProduct id: {productID} \r\nFull price: {total_amount} \r\n"
+                                                                f"User_id: {user_id} \r\nUser name:{user_name} \r\nAddres: {user_address} \r\n"
+                                                                f"Phone number: {'(+'+user_phone[0:2]+')'+user_phone[2:] if len(user_phone)>9 and not user_phone.startswith('0') else user_phone}")
     await request.add_order(productID, total_amount, user_id, user_name, user_address, user_phone)

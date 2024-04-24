@@ -1,16 +1,25 @@
-import asyncpg  # asyncpg # psycopg_pool
+from datetime import datetime
 from typing import List
-from core.utils.debugger import get_json
+
+import asyncpg  # asyncpg # psycopg_pool
 
 
 class Request:
     def __init__(self, connector: asyncpg.pool.Pool):  # asyncpg.pool.Pool # psycopg_pool.AsyncConnectionPool.connection
         self.connector = connector
 
-    async def add_data(self, user_id: int, user_name):
-        query = f"INSERT INTO datausers (user_id, user_name) VALUES ({user_id}, '{user_name}') " \
-                f"ON CONFLICT (user_id) DO UPDATE SET user_name='{user_name}'"
-        await self.connector.execute(query)
+    async def add_userdata(self, user_id: int, user_name: str, date: datetime):
+        formatted_date = date.astimezone().strftime('%Y-%m-%d %H:%M:%S%z')
+        timestamp = date.timestamp()
+        query = f"INSERT INTO datausers (user_id, user_name, start_date) VALUES ($1, $2, $3) " \
+                f"ON CONFLICT (user_id) DO UPDATE SET user_name=$2, last_online=$3 "
+        await self.connector.execute(query, user_id, user_name, date)
+        # querytest = f"UPDATE datausers SET start_date=$1"
+        # await self.connector.execute(querytest, date)
+
+    async def update_user_online(self, user_id: int, date: datetime):
+        query = f"UPDATE datausers SET last_online=$2 WHERE user_id=$1"
+        await self.connector.execute(query, user_id, date)
 
     async def add_age(self, user_id: int, user_age: int):
         query = f"INSERT INTO datausers (user_id, user_age) VALUES ({user_id}, {user_age}) " \

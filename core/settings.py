@@ -34,14 +34,14 @@ def get_settings(path: str):
 
     return Settings(
         bots2=Bots(
-            bot_token=env.str("TOKEN"),
-            provider_token=env.str("PROVIDER_TOKEN"),
+            bot_token=env.str("TOKEN2"),
+            provider_token=env.str("PROVIDER_TOKEN2"),
             admin_id=env.int("ADMIN_ID"),
             coadmin_id=env.int("COADMIN_ID"),
         ),
         bots=Bots(
-            bot_token=env.str("TOKEN2"),
-            provider_token=env.str("PROVIDER_TOKEN2"),
+            bot_token=env.str("TOKEN"),
+            provider_token=env.str("PROVIDER_TOKEN"),
             admin_id=env.int("ADMIN_ID"),
             coadmin_id=env.int("COADMIN_ID"),
         ),
