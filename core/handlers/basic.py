@@ -34,21 +34,21 @@ async def get_start_deep_link(message: Message, bot: Bot, counter: str, command:
     args = command.args
     payload = int(decode_payload(args))
     data = await request.take_product_by_id(payload)
-    print(data)
+    req_max = await request.take_product_count()
+    row_max = req_max['r_max']
+
+    result = await request.take_file_ids(data['content_ids'])
+    file_ids = [(file_id if isinstance(file_id, int) else file_id['file_id']) for file_id in result]
     page = data['rnum'] - 1
     post = Post(db_id=payload,
                 page=page,
-                photos=data['photos'],
+                file_ids=file_ids,
                 title=data['name'],
                 price=data['price'],
-                count=data['count'])
-    await send_post(chat=message.chat.id, bot=bot, post=post, markup=market_product_keyboard(page))
-
-
-async def get_location(message: Message, bot: Bot, request: Request):
-    await message.answer(f'Я ни в коем случае не сохраняю твою геолокацию \r\n\a'
-                         f'<code>{message.location.latitude}\r\n{message.location.longitude}</code> 👀')
-    await request.add_location(message.from_user.id, message.location.latitude, message.location.longitude)
+                count=data['count'],
+                desc=data['description'],
+                tags=data['tags'])
+    await send_post(chat=message.chat.id, bot=bot, post=post, markup=market_product_keyboard(page, row_max))
 
 
 async def get_photo(message: Message, bot: Bot):

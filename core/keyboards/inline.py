@@ -80,17 +80,18 @@ def market_start_keyboard():
     return keyboard_builder.as_markup()
 
 
-def market_product_keyboard(pageID: int):
+def market_product_keyboard(pageID: int, p_max: int):
     keyboard_builder = InlineKeyboardBuilder()
+    btns = 1
     if pageID > 0:
+        btns += 1
         keyboard_builder.button(text='<', callback_data=f'post_edit_{pageID - 1}')
     keyboard_builder.button(text=f'({pageID + 1})', callback_data='current_page')
-    keyboard_builder.button(text='>', callback_data=f'post_edit_{pageID + 1}')
+    if pageID < p_max - 1:
+        btns += 1
+        keyboard_builder.button(text='>', callback_data=f'post_edit_{pageID + 1}')
     keyboard_builder.button(text='Подробнее', callback_data=f'post_detailed_{pageID}')
-    if pageID > 0:
-        keyboard_builder.adjust(3, 1)
-    else:
-        keyboard_builder.adjust(2, 1)
+    keyboard_builder.adjust(btns, 1)
     return keyboard_builder.as_markup()
 
 
@@ -122,6 +123,6 @@ def product_test_keyboard():
 def channel_post_keyboard(link: str):
     keyboard_builder = InlineKeyboardBuilder()
 
-    keyboard_builder.button(text=f"Перейти к боту{random.choice(['💐','🏵️','💮','🌸','🌹','🌺','🌻','🌼','🌷'])}", url=link)
+    keyboard_builder.button(text=f"Перейти к боту {random.choice(['💐','🏵️','💮','🌸','🌹','🌺','🌻','🌼','🌷'])}", url=link)
     keyboard_builder.adjust(1)
     return keyboard_builder.as_markup()

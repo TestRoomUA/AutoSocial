@@ -2,10 +2,9 @@ from aiogram.fsm.state import StatesGroup, State
 
 
 class ChatState(StatesGroup):
-    DEFAULT = State()
+    MARKET = State()
+
     BUYING = State()
-    SEARCH = State()
-    SCROLL = State()
 
 
 class AdminPanelState(StatesGroup):
@@ -17,6 +16,8 @@ class AdminState(StatesGroup):
     ADDED_PRODUCT_PHOTO = State()
     ADDED_PRODUCT_NAME = State()
     ADDED_PRODUCT_PRICE = State()
+    ADDED_PRODUCT_DESC = State()
+    ADDED_PRODUCT_TAGS = State()
     ADDED_PRODUCT_CHECK = State()
 
     WATCH_LIST = State()

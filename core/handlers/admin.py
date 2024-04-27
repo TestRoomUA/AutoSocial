@@ -1,16 +1,20 @@
+import asyncio
+import json
+import random
 from typing import List
 
 from aiogram import Bot
-from aiogram.types import Message, FSInputFile, InputMediaPhoto, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto, InputMedia, ContentType as CT
 from core.keyboards.inline import admin_keyboard, product_test_keyboard
 from core.keyboards.reply import admin_add_photo_reply_keyboard
 from core.utils.dbconnect import Request
 from aiogram.fsm.context import FSMContext
-from core.utils.statesform import AdminState, AdminPanelState
+from core.utils.states import AdminState, AdminPanelState
 from core.utils.objects import Post
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from core.handlers.apsched import post_channel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from core.handlers.media import post_text
 from core.settings import settings
 
 
@@ -31,6 +35,7 @@ async def admin_callback(call: CallbackQuery, bot: Bot, state: FSMContext, reque
         case 'logout':
             await state.clear()
             await call.message.answer('Вы вышли с панели админа')
+
         case 'product':
             match data[2]:
                 case 'add':
@@ -47,92 +52,142 @@ async def admin_callback(call: CallbackQuery, bot: Bot, state: FSMContext, reque
                 case 'remove':
                     await state.set_state(AdminState.REMOVE_PRODUCT)
                     await call.message.answer('Введите номер продукта, который хотите убрать')
-
+    chat = call.message.chat.id
+    message_id = call.message.message_id
     await call.answer()
+    await bot.delete_message(chat_id=chat, message_id=message_id)
 
 
-async def add_product_photo(message: Message, bot: Bot, state: FSMContext):
+async def add_product_photo_group(message: Message, bot: Bot, state: FSMContext, request: Request, album: List[Message] = None):
+    media_max = settings.media.post_media_max
     context_data = await state.get_data()
-    photos: List[str] = context_data.get(f'photos') if context_data.get(f'photos') is not None else []
-    photos_len = len(photos) + 1
-    if photos_len > 3:
-        await message.answer(text='Лимит фото превышен. \r\nЕлси что-то не так, обратитесь к разработчику')
-        await message.send_copy(chat_id=settings.bots.admin_id)
-        await bot.send_message(chat_id=settings.bots.admin_id, text='Хозяин хочет больше фото!!!')
-        return
+    file_ids: List[str] = context_data.get(f'file_ids') if context_data.get(f'file_ids') is not None else []
+    photo_len = len(file_ids)
+    is_max = False
 
-    file = await bot.get_file(message.photo[-1].file_id)
-    filename = fr'p_{message.photo[-1].file_unique_id}.jpg'
-    await bot.download_file(file.file_path, fr'Content\{filename}')
-    photos.append(filename)
-    await state.update_data(photos=photos)
+    for i, msg in enumerate(album) if album is not None else enumerate([message]):
+        media_len = photo_len + i + 1
+        if media_len > media_max:
+            await message.answer(
+                text=f'Лимит медиа превышен (максимум: {media_max}). \r\nЕлси что-то не так, обратитесь к разработчику')
+            await message.send_copy(chat_id=settings.bots.admin_id)
+            await bot.send_message(chat_id=settings.bots.admin_id, text='Хозяин хочет больше фото!!!')
+            break
 
-    if photos_len == 3:
-        await message.answer(text='Отлично, теперь отправьте название продукта')
-        await state.set_state(AdminState.ADDED_PRODUCT_PHOTO)
-        return
+        if msg.photo:
+            file_id = msg.photo[-1].file_id
+        else:
+            obj_dict = msg.model_dump()
+            file_id = obj_dict[msg.content_type]['file_id']
 
-    if photos_len < 3:
-        await message.answer(text=f'Получено {photos_len} из 3 фото. Вы можете добавить ещё, либо оставить {photos_len} фото и перейти к названию', reply_markup=admin_add_photo_reply_keyboard())
-        return
+        file_ids.append(file_id)
+        message_media_count = f'Получено {media_len} из {media_max} фото. '
+
+        await bot.send_message(chat_id=message.chat.id, text=message_media_count)
+        if media_len == media_max:
+            is_max = True
+    if is_max:
+        await button_next_added_product_photo(message=message, bot=bot, state=state)
+    else:
+        await bot.send_message(chat_id=message.chat.id, reply_markup=admin_add_photo_reply_keyboard(),
+                               text=f'Добавьте ещё, либо нажмите "Далее", чтобы перейти к названию')
+
+    await state.update_data(file_ids=file_ids)
 
 
 async def button_next_added_product_photo(message: Message, bot: Bot, state: FSMContext):
-    await message.answer(text='Отлично, теперь отправьте название продукта')
+    await bot.send_message(chat_id=message.chat.id, text='Отлично, теперь отправьте название продукта')
     await state.set_state(AdminState.ADDED_PRODUCT_PHOTO)
 
 
 async def add_product_name(message: Message, bot: Bot, state: FSMContext):
     name = message.text
-    await message.answer(f'Назовите цену для {name}')
     await state.update_data(name=name)
     await state.set_state(AdminState.ADDED_PRODUCT_NAME)
+    await bot.send_message(chat_id=message.chat.id, text=f'Назовите цену для {name}')
 
 
 async def add_product_price(message: Message, bot: Bot, state: FSMContext):
     price = int(message.text)
     await state.update_data(price=price)
-    await message.answer(f'Сколько цветов в букете?')
     await state.set_state(AdminState.ADDED_PRODUCT_PRICE)
+    await bot.send_message(chat_id=message.chat.id, text=f'Добавьте описание продукту')
 
 
-async def add_product_quantity(message: Message, bot: Bot, state: FSMContext):
+async def add_product_description(message: Message, bot: Bot, state: FSMContext):
+    description = message.text
+    await state.update_data(description=description)
+    await state.set_state(AdminState.ADDED_PRODUCT_DESC)
+    await bot.send_message(chat_id=message.chat.id, text=f'Добавьте категории для продукта (пишите категории через запятую (,) )')
+
+
+async def add_product_tags(message: Message, bot: Bot, state: FSMContext):
+    tags: List[str] = message.text.split(',')
+    await state.update_data(tags=tags)
+    await state.set_state(AdminState.ADDED_PRODUCT_TAGS)
+    await bot.send_message(chat_id=message.chat.id, text=f'Если хотите, укажите сколько в наличии цветов')
+
+
+async def add_product_quantity(message: Message, bot: Bot, state: FSMContext, request: Request):
     count = int(message.text)
     await state.update_data(count=count)
-    await message.answer(f'Данные готовы, так выглядит ваш продукт. Елси всё супер, скажите Далее')
+    wait_msg = await bot.send_message(chat_id=message.chat.id, text=f'Подождите. Идёт загрузка.')
     context_data = await state.get_data()
     name = context_data.get('name')
-    photos = context_data.get('photos')
+    file_ids = context_data.get('file_ids')
     price = context_data.get('price')
-    media = [InputMediaPhoto(type='photo', media=FSInputFile(fr"{settings.media.content}\{photo}")) for photo in photos]
-    media[0].caption = f'{name}\r\n{price}zł \r\nВ наличии: {count}'
-    media[0].reply_markup = product_test_keyboard()
+    description = context_data.get('description')
+    tags = context_data.get('tags')
+    name_for_file = name.replace(" ", "_")
+    media = []
+    content_ids = []
+    for i, file_id in enumerate(file_ids):
+        file = await bot.get_file(file_id)
+        filename = fr'p_{name_for_file}-{i+1}.jpg'
+        filepath = settings.media.content
+        await bot.download_file(file.file_path, fr'{filepath}\{filename}')
+        content_id = await request.add_content(file_id=file_id, path=filepath, filename=filename)
+        content_ids.append(content_id['id'])
+        media.append(InputMediaPhoto(type='photo', media=file_id))
+        wait_msg = await bot.edit_message_text(chat_id=wait_msg.chat.id, message_id=wait_msg.message_id, text=wait_msg.text+'.')
+        await asyncio.sleep(0.01)
+    await bot.edit_message_text(chat_id=wait_msg.chat.id, message_id=wait_msg.message_id,
+                                text=f'Данные готовы! Так выглядит ваш продукт.')
+    text = post_text(name, price, count, description, tags)
+    media[0].caption = text
     await bot.send_media_group(chat_id=message.chat.id, media=media)
+    await bot.send_message(chat_id=message.chat.id, reply_markup=admin_add_photo_reply_keyboard(), text='Если всё супер, скажите "Далее"')
+    await state.update_data(content_ids=content_ids)
     await state.set_state(AdminState.ADDED_PRODUCT_CHECK)
 
 
 async def add_product_check_successful(message: Message, bot: Bot, state: FSMContext, request: Request, apscheduler: AsyncIOScheduler):
-    await message.answer('perfect')
+    await bot.send_message(chat_id=message.chat.id, text='Готово! Сейчас отправим новость в ваш канал')
     context_data = await state.get_data()
     name = context_data.get('name')
-    photos = context_data.get('photos')
+    file_ids = context_data.get('file_ids')
+    content_ids = context_data.get('content_ids')
     price = context_data.get('price')
     count = context_data.get('count')
-    db_answer = await request.add_product(name, price, count, photos)
+    description = context_data.get('description')
+    tags = context_data.get('tags')
+    db_answer = await request.add_product(name, price, count, content_ids, description, tags)
     db_count = await request.take_product_count()
     apscheduler.add_job(post_channel,
                         trigger='date',
                         run_date=datetime.now() + timedelta(seconds=10),
                         kwargs={'bot': bot, 'post': Post(db_id=db_answer['id'],
                                                          page=db_count,
-                                                         photos=photos,
+                                                         file_ids=file_ids,
                                                          title=name,
                                                          price=price,
+                                                         desc=description,
+                                                         tags=tags,
                                                          count=count)})
     await state.clear()
 
 
 async def add_product_check_fail(message: Message, bot: Bot, state: FSMContext):
-    await message.answer('Штож, повторим. Пришлите фото продукта')
+    await bot.send_message(chat_id=message.chat.id, text='Штож, повторим. Пришлите фото продукта')
     await state.clear()
     await state.set_state(AdminState.ADD_PRODUCT)

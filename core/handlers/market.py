@@ -1,6 +1,7 @@
 from typing import List
 from aiogram import Bot
 from aiogram.types import Message, CallbackQuery, FSInputFile, InputMediaPhoto
+from aiogram.fsm.context import FSMContext
 from core.keyboards.inline import market_product_keyboard, market_start_keyboard, detailed_product_keyboard
 from aiogram.methods.delete_message import DeleteMessage
 from core.utils.dbconnect import Request
@@ -36,19 +37,26 @@ async def show_post(call: CallbackQuery, bot: Bot, request: Request):
     data = call.data.split('_')
     page = int(data[2])
     post_data = await request.take_product(page)
+    req_max = await request.take_product_count()
+    row_max = req_max['r_max']
+
+    result = await request.take_file_ids(post_data['content_ids'])
+    file_ids = [(file_id if isinstance(file_id, int) else file_id['file_id']) for file_id in result]
+
     post = Post(title=post_data['name'],
                 price=post_data['price'],
                 count=post_data['count'],
-                photos=post_data['photos'],
+                file_ids=file_ids,
                 page=page,
-                db_id=post_data['id'])
+                db_id=post_data['id'],
+                desc=post_data['description'],
+                tags=post_data['tags'])
     chat_id = call.message.chat.id
-    message_id = call.message.message_id
     match data[1]:
         case 'edit':
-            await edit_post(message=call.message, bot=bot, post=post, markup=market_product_keyboard(page))
+            await edit_post(message=call.message, bot=bot, post=post, markup=market_product_keyboard(page, row_max))
         case 'create':
-            await send_post(chat=chat_id, bot=bot, post=post, markup=market_product_keyboard(page), deleteMessages=[call.message.message_id])
+            await send_post(chat=chat_id, bot=bot, post=post, markup=market_product_keyboard(page, row_max), deleteMessages=[call.message.message_id])
         case 'detailed':
             await send_detailed_post(chat=chat_id, bot=bot, post=post, markup=detailed_product_keyboard(page), deleteMessages=[call.message.message_id])
     await call.answer()

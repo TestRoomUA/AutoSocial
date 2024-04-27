@@ -13,6 +13,7 @@ class Bots:
 @dataclass
 class Media:
     content: str
+    post_media_max: int
 
 
 @dataclass
@@ -46,7 +47,8 @@ def get_settings(path: str):
             coadmin_id=env.int("COADMIN_ID"),
         ),
         media=Media(
-            content=env.str("CONTENT_PATH")
+            content=env.str("CONTENT_PATH"),
+            post_media_max=env.int("POST_MEDIA_MAX")
         ),
         channel=Channel(
             id=env.int("CHANNEL_ID")

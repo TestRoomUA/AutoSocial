@@ -24,13 +24,14 @@ from core.handlers import apsched
 from datetime import datetime, timedelta
 from core.handlers.market import market_open, market_call, show_post
 from core.handlers.admin import admin_mode, admin_callback, \
-    add_product_photo, add_product_name, add_product_price, add_product_quantity, add_product_check_successful, add_product_check_fail, \
+    add_product_photo_group, add_product_name, add_product_price, add_product_description, add_product_tags, add_product_quantity, add_product_check_successful, add_product_check_fail, \
     button_next_added_product_photo
-from core.utils.statesform import AdminState, AdminPanelState
+from core.utils.states import AdminState, AdminPanelState
 from core.utils.debugger import test_button
 from aiogram.utils.chat_action import ChatActionMiddleware
 from core.middlewares.example_chat_action_middleware import ExampleChatActionMiddleware
-from core.middlewares.jsonmiddleware import JsonMiddleware
+from core.middlewares.jsonmiddleware import JsonMiddleware, JsonCallMiddleware
+from core.middlewares.albummiddleware import AlbumMiddleware
 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
@@ -71,12 +72,14 @@ async def start():
     scheduler.start()
 
     dp.update.middleware.register(DbSession(pool_connect))
+    dp.message.middleware.register(AlbumMiddleware())
     dp.message.middleware.register(CounterMiddleware())
     dp.message.middleware.register(GuestCounterMiddleware())
     dp.message.middleware.register(OfficeHoursMiddleware())  # dp.update
     dp.update.middleware.register(SchedulerMiddleware(scheduler))
     dp.update.middleware.register(ExampleChatActionMiddleware())
     dp.message.middleware.register(JsonMiddleware())
+    dp.callback_query.middleware.register(JsonCallMiddleware())
     dp.startup.register(start_bot)
     dp.shutdown.register(stop_bot)
 
@@ -90,18 +93,18 @@ async def start():
     dp.message.register(market_open, Command(commands=['market']))
     dp.callback_query.register(market_call, F.data.startswith('market'))
 
-    dp.message.register(add_product_photo, F.photo, AdminState.ADD_PRODUCT)
+    dp.message.register(add_product_photo_group, F.content_type.in_([ContentType.PHOTO, ContentType.VIDEO, ContentType.AUDIO, ContentType.DOCUMENT]), AdminState.ADD_PRODUCT)
     dp.message.register(button_next_added_product_photo, F.text.lower() == 'далее', AdminState.ADD_PRODUCT)
     dp.message.register(add_product_name, F.text, AdminState.ADDED_PRODUCT_PHOTO)
     dp.message.register(add_product_price, F.text, AdminState.ADDED_PRODUCT_NAME)
-    dp.message.register(add_product_quantity, F.text, AdminState.ADDED_PRODUCT_PRICE, flags={'chat_action': 'upload_photo'})
+    dp.message.register(add_product_description, F.text, AdminState.ADDED_PRODUCT_PRICE)
+    dp.message.register(add_product_tags, F.text, AdminState.ADDED_PRODUCT_DESC)
+    dp.message.register(add_product_quantity, F.text, AdminState.ADDED_PRODUCT_TAGS, flags={'chat_action': 'upload_photo'})
     dp.message.register(add_product_check_successful, F.text.lower() == 'далее', AdminState.ADDED_PRODUCT_CHECK)
     dp.message.register(add_product_check_fail, F.text, AdminState.ADDED_PRODUCT_CHECK)
     dp.pre_checkout_query.register(pre_checkout_query)
     dp.message.register(successful_payment, F.content_type == ContentType.SUCCESSFUL_PAYMENT)
     dp.shipping_query.register(shipping_check)
-    # dp.message.register(get_true_contact, F.contact, IsTrueContact())
-    # dp.message.register(get_fake_contact, F.contact)
     dp.callback_query.register(send_contact_data, F.data.startswith('contacts_'))
     dp.message.register(get_start_deep_link, CommandStart(deep_link=True), flags={'chat_action': 'typing'})
     dp.message.register(get_start, CommandStart(), flags={'chat_action': 'typing'})
