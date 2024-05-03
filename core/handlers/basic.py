@@ -3,6 +3,7 @@ from aiogram import Bot
 from aiogram.filters import CommandObject
 from aiogram.types import Message, FSInputFile, CallbackQuery
 from datetime import datetime, timezone
+from core.handlers.market import show_post
 from core.handlers.media import send_post
 from core.keyboards.inline import start_inline_keyboard, contacts_inline_keyboard, market_product_keyboard
 from core.utils.dbconnect import Request
@@ -17,7 +18,8 @@ def get_now():
 
 async def get_start(message: Message, bot: Bot, counter: str, request: Request):
     date = get_now()
-    await request.add_userdata(message.from_user.id, message.from_user.first_name, date)
+    username = message.from_user.first_name.replace("'", "").replace('"', '')
+    await request.add_userdata(message.from_user.id, username, date)
 
     if counter == 1:
         start_message = f'Добро пожаловать, {message.from_user.first_name}, в наш цветочный уголок!'
@@ -32,23 +34,20 @@ async def get_start_deep_link(message: Message, bot: Bot, counter: str, command:
     await get_start(message=message, bot=bot, counter=counter, request=request)
 
     args = command.args
-    payload = int(decode_payload(args))
-    data = await request.take_product_by_id(payload)
-    req_max = await request.take_product_count()
-    row_max = req_max['r_max']
+    try:
+        payload: str = decode_payload(args)
+    except UnicodeDecodeError as e:
+        print(e)
+        payload: str = args
+    if payload.startswith('from_'):
+        match payload.split('_')[1]:
+            case 'channel':
+                return
 
-    result = await request.take_file_ids(data['content_ids'])
-    file_ids = [(file_id if isinstance(file_id, int) else file_id['file_id']) for file_id in result]
+    post_id = int(payload)
+    data = await request.take_product_by_id(post_id)
     page = data['rnum'] - 1
-    post = Post(db_id=payload,
-                page=page,
-                file_ids=file_ids,
-                title=data['name'],
-                price=data['price'],
-                count=data['count'],
-                desc=data['description'],
-                tags=data['tags'])
-    await send_post(chat=message.chat.id, bot=bot, post=post, markup=market_product_keyboard(page, row_max))
+    await show_post(bot=bot, request=request, chat_id=message.chat.id, message_id=message.message_id, command='create', page=page)
 
 
 async def get_photo(message: Message, bot: Bot):

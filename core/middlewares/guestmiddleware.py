@@ -1,3 +1,4 @@
+import aiogram.exceptions
 from aiogram import BaseMiddleware
 from aiogram.types import Message
 from typing import Dict, Any, Callable, Awaitable
@@ -19,14 +20,16 @@ class GuestCounterMiddleware(BaseMiddleware):
         if event.chat.id == settings.bots.admin_id or event.bot is None:
             self.last_user_id = settings.bots.admin_id
         else:
-            if event.chat.id != self.last_user_id:
-                self.last_user_id = event.chat.id
-                self.guest_message_counter = 0
-            if self.guest_message_counter == 0:
-                await event.bot.send_message(chat_id=settings.bots.admin_id, text=f'У нас гости 👀\r\n{event.from_user.first_name}\r\n{event.from_user.id}')
-            self.guest_message_counter += 1
-            await event.bot.copy_message(chat_id=settings.bots.admin_id, from_chat_id=event.chat.id, message_id=event.message_id)
-
+            try:
+                if event.chat.id != self.last_user_id:
+                    self.last_user_id = event.chat.id
+                    self.guest_message_counter = 0
+                if self.guest_message_counter == 0:
+                    await event.bot.send_message(chat_id=settings.bots.admin_id, text=f'У нас гости 👀\r\n{event.from_user.first_name}\r\n{event.from_user.id}')
+                self.guest_message_counter += 1
+                await event.bot.copy_message(chat_id=settings.bots.admin_id, from_chat_id=event.chat.id, message_id=event.message_id)
+            except aiogram.exceptions.TelegramBadRequest as e:
+                print(e)
         data['guest_message_counter'] = self.guest_message_counter
         data['last_user_id'] = self.last_user_id
         return await handler(event, data)

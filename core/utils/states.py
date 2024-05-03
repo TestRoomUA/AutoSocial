@@ -20,5 +20,9 @@ class AdminState(StatesGroup):
     ADDED_PRODUCT_TAGS = State()
     ADDED_PRODUCT_CHECK = State()
 
+    CREATE_POST = State()
+    CREATE_POST_BUTTON = State()
+    SEND_POST = State()
+
     WATCH_LIST = State()
     REMOVE_PRODUCT = State()

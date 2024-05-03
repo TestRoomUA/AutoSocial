@@ -37,14 +37,6 @@ class Request:
         except asyncpg.PostgresError as e:
             print(e)
 
-    # async def take_content(self, content_id: int):
-    #     try:
-    #         query = f"SELECT * FROM contentdata WHERE id = $1"
-    #         result = await self.connector.fetchrow(query, content_id)
-    #         return result
-    #     except asyncpg.PostgresError as e:
-    #         print(e)
-
     async def take_file_ids(self, content_ids: List[int]):
         try:
             query = f"SELECT file_id FROM contentdata WHERE id IN ({','.join(map(str, content_ids))})"
@@ -54,27 +46,46 @@ class Request:
             print(f'{e} \r\n-------\r\n {content_ids}')
 
     async def add_order(self, product_id: int, order_price: int, user_id: int, user_name: str, user_address: List[str], user_phone: str):
-        address = ', '.join([f"{i if i != '' else None}" for i in user_address])
-        query = f"INSERT INTO orders (product_id, order_price, user_id, user_name, user_address, user_phone) VALUES ({product_id}, {order_price}, {user_id}, '{user_name}', '{{ {address} }}'::text[], '{user_phone}') "
-        await self.connector.execute(query)
+        try:
+            address = ', '.join([f"{i if i != '' else None}" for i in user_address])
+            query = f"INSERT INTO orders (product_id, order_price, user_id, user_name, user_address, user_phone) VALUES ({product_id}, {order_price}, {user_id}, '{user_name}', '{{ {address} }}'::text[], '{user_phone}') "
+            await self.connector.execute(query)
+        except asyncpg.PostgresError as e:
+            print(e)
 
     async def add_product(self, product_name: str, product_price: int, count: int, content_ids: List[int], desc: str, tags: List[str]):
         try:
-            # photos_str = ', '.join([f"{photo}" for photo in photos])
             query = \
-                f"""INSERT INTO products (name, price, count, content_ids{', description' if desc is not None else ''}{', tags' if tags is not None else ''}) 
-                VALUES ($1, $2, $3, $4::int[], $5', {{ {', '.join([f"'{tag}'" for tag in tags])} }}'::text[]') 
+                f"""INSERT INTO products (name, price, count, content_ids, description, tags) 
+                VALUES ($1, $2, $3, $4::int[], $5, $6::text[]) 
                 RETURNING id;"""
-            result = await self.connector.fetchrow(query, product_name, product_price, count, content_ids, desc)
+            result = await self.connector.fetchrow(query, product_name, product_price, count, content_ids, desc, tags)
             return result
         except asyncpg.PostgresError as e:
             print(e)
 
-    async def take_product(self, row_num: int):
+    async def take_all_tags(self):
         try:
-            query = f"SELECT * FROM products " \
-                    f"ORDER BY id ASC OFFSET $1 LIMIT 1"
+            query = """
+            SELECT array_agg(DISTINCT e) AS all_tags 
+            FROM products 
+            CROSS JOIN LATERAL 
+            unnest(tags) as a(e) 
+                    """
+            result = await self.connector.fetchrow(query)
+            return result
+        except asyncpg.PostgresError as e:
+            print(e)
+
+    async def take_product(self, row_num: int, tag: str | None = None):
+        try:
+            query = f"SELECT * FROM products "
+            if tag is not None:
+                query += f"WHERE '{tag}'=ANY(products.tags) "
+            query += f"ORDER BY id DESC OFFSET $1 LIMIT 1"
+
             result = await self.connector.fetchrow(query, row_num)
+            print(result)
             return result
         except asyncpg.PostgresError as e:
             print(e)
@@ -88,9 +99,10 @@ class Request:
         except asyncpg.PostgresError as e:
             print(e)
 
-    async def take_product_count(self):
+    async def take_product_count(self, tag: str | None = None):
         try:
-            query = f"SELECT count(*) as r_max FROM products"
+            query = f"SELECT count(*) as r_max FROM products "
+            if tag is not None: query += f"WHERE '{tag}'=ANY(tags)"
             result = await self.connector.fetchrow(query)
             return result
         except asyncpg.PostgresError as e:

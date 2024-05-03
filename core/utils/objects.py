@@ -32,7 +32,7 @@ class DBInfo:
 
 
 class Post:
-    def __init__(self, db_id, page, file_ids, title, price, count, desc=None, tags=None):
+    def __init__(self, db_id:int|None=None, page:int|None=None, file_ids:List[str]|None=None, title:str|None=None, price:int|None=None, count:int|None=None, desc:str|None=None, tags:List[str]|None=None):
         self.db = DBInfo(db_id, page)
         self.db_id = db_id
         self.page = page

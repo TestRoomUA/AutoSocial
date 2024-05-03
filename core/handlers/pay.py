@@ -1,25 +1,11 @@
 from aiogram import Bot
-from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, InlineKeyboardButton, InlineKeyboardMarkup,\
+from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, \
     ShippingOption, ShippingQuery, FSInputFile
 from aiogram.types import CallbackQuery
+from core.keyboards.inline import pay_keyboard
 from core.utils.dbconnect import Request
 from core.utils.debugger import get_json
 from core.settings import settings
-
-keyboards = InlineKeyboardMarkup(inline_keyboard=[
-    [
-        InlineKeyboardButton(
-            text='to Pay order',
-            pay=True
-        )
-    ],
-    [
-        InlineKeyboardButton(
-            text='link',
-            url='https://google.com'
-        )
-    ]
-])
 
 
 PL_SHIPPING = ShippingOption(
@@ -83,12 +69,15 @@ async def shipping_check(shipping_query: ShippingQuery, bot: Bot):
 async def order(call: CallbackQuery, bot: Bot, request: Request):
     call_data = call.data.split('_')
     page = int(call_data[1])
-    post_data = await request.take_product(page)
+    tag = call_data[2] if len(call_data) > 2 else None
+    post_data = await request.take_product(page, tag)
     desc = post_data['description']
     if desc is None:
         desc = ""
+    chat = call.message.chat.id
+    await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
     await bot.send_invoice(
-        chat_id=call.message.chat.id,
+        chat_id=chat,
         title=f"{post_data['name']}\r\n",
         description=f"{desc} \r\n{post_data['count']} в букете \r\n",
         payload=str(page),
@@ -109,7 +98,7 @@ async def order(call: CallbackQuery, bot: Bot, request: Request):
         start_parameter='',
         provider_data=None,
         photo_url=fr"https://assets.answersingenesis.org/img/cms/content/contentnode/header_image/is-origin-of-flowering-plants-mystery.jpg",
-        photo_size=100,
+        photo_size=39188,
         photo_width=945,
         photo_height=300,
         need_name=True,
@@ -123,9 +112,10 @@ async def order(call: CallbackQuery, bot: Bot, request: Request):
         protect_content=False,
         reply_to_message_id=None,
         allow_sending_without_reply=True,
-        reply_markup=keyboards,
+        reply_markup=pay_keyboard(page, tag),
         request_timeout=15
     )
+    await call.answer()
 
 
 async def pre_checkout_query(pre_checkout_query: PreCheckoutQuery, bot: Bot):

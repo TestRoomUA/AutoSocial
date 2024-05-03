@@ -41,8 +41,8 @@ def get_data_reply_keyboard():
     return keyboard_builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 
-def admin_add_photo_reply_keyboard():
+def next_reply_keyboard(text: str | None = None):
     keyboard_builder = ReplyKeyboardBuilder()
     keyboard_builder.button(text='Далее')
     keyboard_builder.adjust(1)
-    return keyboard_builder.as_markup(resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Отправьте ещё фото, либо нажмите кнопку 'Далее'")
+    return keyboard_builder.as_markup(resize_keyboard=True, one_time_keyboard=True, input_field_placeholder=text)
